@@ -1,30 +1,49 @@
 import numpy as np
 
-def get_contigs_idx(ar_input: np.typing.ArrayLike, topn: int)->np.typing.NDArray[np.int_]:
+def get_contigs_idx(ar_input: np.typing.ArrayLike, top_n: int, get_high: bool):
     '''
-    this f identifies continuous stretches of 1s
-    ar_input is an array of 0/1 vals, eg thryve's BBI status,
-    which we transform like so df.Status.map({'LOW_CONFIDENCE':0, 'HIGH_CONFIDENCE':1})
+    get start idx, end idx, and lengths of unbroken runs of 1s/Os
+    ar_input is eg df['Status'].map({'HIGH_CONFIDENCE':1, 'LOW_CONFIDENCE':0})
+    get_high=True returns 1s, =False 0s
+    top_n is num longest contigs to get
 
-    returns topn start:stop indices that indicate the beginning and the end of 1s stretch. Starting with the longest pair
+    returns 3 arrays
     '''
-    x=np.asarray(ar_input)
-    a_diff = np.ediff1d(ary=x, to_begin=[0])
-    starts = np.where(a_diff==1)[0]
-    stops = np.where(a_diff==-1)[0]
+    a=np.asarray(ar_input, dtype=np.int8)
 
-    # a_idx contains pairs of vals, where first val is start idx, and second is end contig 1s
-    if starts.shape[0] > stops.shape[0]: 
-        # for when array is open-ended, ie high-conf values just keep going, we use  idx of last element for closing
-        #a_idx = np.column_stack((starts[:-1],stops)) 
-        a_idx = np.column_stack((starts, np.append(stops,values=[ar_input.shape[0]-1], axis=0))) 
-    else: 
-        a_idx = np.column_stack((starts,stops))
-    
-    a_contig_len = a_idx[:,1]-a_idx[:,0] 
-    
-    if topn>a_contig_len.shape[0]: # if we ask for too many idx pairs, just return all we have
-        topn=a_contig_len.shape[0]
-    idx=np.argsort(a_contig_len)[-1*topn:] # get topn idx of contig arrays with highest vals
+    change=np.flatnonzero(np.ediff1d(a))+1 # +1 to get correct idx, since ediff1d 'skips' the first elem
+    begin=np.empty(change.size+1, dtype=np.uint32) # up to max=4_294_967_295 for 32bits, up to max**2 for uint64 
+    end=np.empty(change.size+1, dtype=np.uint32)
 
-    return a_idx[idx][::-1]
+    begin[0]=0
+    begin[1:]=change
+    end[:-1]=change
+    end[-1]=a.size
+
+    lens=end-begin 
+    vals=a[begin]
+
+    if get_high:
+        mask=(vals==1)
+    else: mask=(vals==0)
+
+    if top_n>begin.size: # if ask too many contig arrays, just return all we have
+        top_n=begin.size
+
+    idx=np.argsort(lens[mask])[-1*top_n:]
+
+    return begin[mask][idx][::-1], end[mask][idx][::-1], lens[mask][idx][::-1]
+
+def rr_to_bpm(rr_ms: np.typing.ArrayLike):
+    '''
+    convert R-R [ms] array into bpm, error-proof for div by zero and nans
+    '''
+    rr_ms = np.asarray(rr_ms, dtype=float)
+    return np.divide(60_000, rr_ms, out=np.full_like(rr_ms, np.nan), where=(rr_ms!=0))
+
+def bpm_to_rr(bpm: np.typing.ArrayLike):
+    '''
+    convert bpm array to R-R [ms] array, error-proof for div by zero and nans
+    '''
+    bpm = np.asarray(bpm, dtype=float)
+    return np.divide(60_000, bpm, out=np.full_like(bpm, np.nan), where=(bpm!=0))
