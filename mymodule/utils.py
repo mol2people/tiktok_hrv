@@ -1,4 +1,7 @@
 import numpy as np
+import pandas as pd
+from typing import Literal
+
 
 def get_contigs_idx(ar_input: np.typing.ArrayLike, top_n: int, get_high: bool):
     '''
@@ -47,3 +50,39 @@ def bpm_to_rr(bpm: np.typing.ArrayLike):
     '''
     bpm = np.asarray(bpm, dtype=float)
     return np.divide(60_000, bpm, out=np.full_like(bpm, np.nan), where=(bpm!=0))
+
+def get_mismatchBBI(df_user: pd.DataFrame, top_n: int, shortest_contig: int, get_high: bool, return_corr: bool=False, corr_method: Literal["pearson", "kendall", "spearman"]='spearman'):
+    '''
+    probbaly would be cool to return time of day info
+    '''
+    holder=[]
+    start,end,lens = get_contigs_idx(ar_input=df_user['Status'].map({'LOW_CONFIDENCE':0, 'HIGH_CONFIDENCE':1}), top_n=top_n, get_high=get_high)
+    idx_pick = np.where( lens>=shortest_contig)[0] # todo what if shorest contig we want is shorter than whats available. Then we need to just give everything, except for len=1/2/3 
+    #print(len(idx_pick))
+
+    if len(idx_pick) == 0:
+        raise ValueError(
+            f"No contigs found with length >= {shortest_contig} "
+            f"for {'high' if get_high else 'low'} confidence segments."
+        )
+
+    times=np.empty(shape=len(idx_pick), dtype=int)
+
+    for i, (start_index, end_index, length) in enumerate(zip(start[idx_pick], end[idx_pick], lens[idx_pick])):
+        temp = df_user.iloc[start_index:end_index]
+        n_diff_vals= sum(np.ediff1d(temp['timeLocal_ms']) != temp['BBI (ms)'].iloc[1:]) 
+        sum_ers_ms= sum(np.abs(np.ediff1d(temp['timeLocal_ms']) -  temp['BBI (ms)'].iloc[1:]))
+
+        times[i] = temp['timeLocal_ms'].iloc[0]
+
+        holder.append([length, n_diff_vals, sum_ers_ms])
+    
+    if not return_corr:
+        df=pd.DataFrame(data=holder, columns=['num measurements', 'num mismatches', 'sum of abs errors'])
+        df.insert(0, 'starttime', (pd.to_datetime(times, unit='ms').strftime("%H:%M")))
+        df=df.assign(confidence='High' if get_high else 'Low')
+    else:
+        df=pd.DataFrame(data=holder, columns=['num measurements', 'num mismatches', 'sum of abs errors']).corr(corr_method).round(2)
+
+
+    return df
