@@ -114,11 +114,11 @@ def get_mismatchBBI(
             holder.append([length, n_diff, sum_err])
     
     if not return_corr:
-        df=pd.DataFrame(data=holder, columns=['vals_per_contig', 'mismatches_per_contig', 'sum_errors_ms'])
+        df=pd.DataFrame(data=holder, columns=['len_contig', 'mismatches_per_contig', 'sum_errors_ms'])
         df.insert(0, 'time', (pd.to_datetime(times, unit='ms').strftime("%H:%M")))
         df=df.assign(confidence='High' if get_high else 'Low')
     else:
-        df=pd.DataFrame(data=holder, columns=['vals_per_contig', 'mismatches_per_contig', 'sum_errors_ms']).corr(corr_method).round(2)
+        df=pd.DataFrame(data=holder, columns=['len_contig', 'mismatches_per_contig', 'sum_errors_ms']).corr(corr_method).round(2)
 
 
     return df
