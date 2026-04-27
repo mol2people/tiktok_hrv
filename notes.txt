@@ -2,3 +2,4 @@ https://github.com/Q-Bukold/TikTok-Content-Scraper/tree/main https://github.com/
 gdrive link https://drive.google.com/drive/folders/179ysDouaC8677bmUeN6hQxM8Ebbj9iUF
 different detection methods coded in python  https://github.com/MMikielew/coRRection/blob/main/app/artifacts.py
 QR codes https://drive.google.com/drive/folders/1sVvQSGaOzqVZXp3QMysERkwJ2V1oD3ib
+pulsatio manual https://drive.google.com/drive/folders/13GA4oTCKgFKXCTNb_60y2SqrMeq9vuLL
